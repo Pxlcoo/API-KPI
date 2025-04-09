@@ -1,59 +1,51 @@
+import requests
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
-# Liste des KPI (labels) et leurs valeurs (exemple)
-labels = [
-    'Ponctualité Clients',
-    'Stock/Ventes',
-    'Coût Stock',
-    'Ponctualité Fournisseurs',
-    'DSI (Rotation Stock)',
-    'Coût Transport/Tonne',
-    'Commandes Parfaites',
-    'Livraison Fournisseurs'
-]
+# Récupération des données depuis l'API
+url = "http://10.101.1.116:8000/kpis"
+response = requests.get(url)
+data = response.json()
 
-# Exemple de valeurs (entre 0 et 100 %)
-values = [84, 25, 30, 70, 50, 60, 77, 70]
+# Calcul des moyennes par KPI
+kpi_values = defaultdict(list)
+for item in data:
+    kpi_values[item['kpi_name']].append(item['value'])
 
-# Boucler les valeurs pour fermer le radar
-values += values[:1]
-angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+kpi_avg = {kpi: sum(values) / len(values)
+           for kpi, values in kpi_values.items()}
+
+# Préparation des données pour le radar chart
+categories = list(kpi_avg.keys())
+values = list(kpi_avg.values())
+values += values[:1]  # Fermer la boucle
+num_vars = len(categories)
+angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
 angles += angles[:1]
 
-# Personnalisation du thème
-plt.style.use('dark_background')
+# Création du radar chart
 fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-fig.patch.set_facecolor('#121212')  # fond de la figure
+ax.plot(angles, values, color='blue', linewidth=2, linestyle='solid')
+ax.fill(angles, values, color='blue', alpha=0.25)
 
-# Couleurs
-line_color = '#00FFFF'
-fill_color = '#00FFFF'
-point_color = '#00FFFF'
-
-# Création du radar
-ax.set_theta_offset(np.pi / 2)
-ax.set_theta_direction(-1)
-
-# Tracés des lignes
-ax.plot(angles, values, color=line_color, linewidth=2, linestyle='solid')
-ax.fill(angles, values, color=fill_color, alpha=0.25)
-
-# Ajouter les points à chaque sommet
-ax.scatter(angles, values, color=point_color, s=50, edgecolors='white', zorder=5)
-
-# Configurer les étiquettes
+# Configuration des axes
 ax.set_xticks(angles[:-1])
-ax.set_xticklabels(labels, color='white', fontsize=11, fontweight='bold')
+ax.set_xticklabels(categories, fontsize=10)
 
-# Configurer les cercles internes
-ax.set_rlabel_position(0)
-ax.set_yticks([20, 40, 60, 80, 100])
-ax.set_yticklabels(['20%', '40%', '60%', '80%', '100%'], color='gray', size=9)
-ax.spines['polar'].set_color('#00FFFF')
-ax.grid(color='#00FFFF', linestyle='dotted', linewidth=0.8, alpha=0.3)
+# Ajout d'étiquettes radiales pour chaque axe
+for i, angle in enumerate(angles[:-1]):
+    ax.text(angle, max(values) * 1.1, f"{values[i]:.2f}",
+            ha='center', va='center', fontsize=8)
 
-# Titre
-plt.title("Radar des KPI Supply Chain", size=16, color='white', pad=20)
+    # Ajout d'une échelle simple
+    ax.text(angle, max(values) * 0.9, f"0-{int(max(values))}",
+            ha='center', va='center', fontsize=6, rotation=90 - angle * 180 / np.pi)
+
+# Ajout de quelques étiquettes radiales pour l'échelle
+ax.set_yticks([0, max(values) * 0.5, max(values)])
+ax.set_yticklabels(['0', f"{max(values) * 0.5:.1f}", f"{max(values):.1f}"], fontsize=8)
+
+plt.title('Moyennes des KPIs', size=15, y=1.1)
 plt.tight_layout()
 plt.show()
